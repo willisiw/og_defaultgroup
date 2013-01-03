@@ -1,0 +1,26 @@
+<?php
+/**
+ * @file
+ * Install file for default group module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function og_defaultgroup_install() {
+}
+
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Remove all the variables that might have been set while
+ * this module was enabled.
+ */
+function og_defaultgroup_uninstall() {
+  db_delete('variable')
+    ->condition('name', "og_defaultgroup%", "LIKE")
+    ->execute();
+
+  cache_clear_all('variables', 'cache_bootstrap');
+}
