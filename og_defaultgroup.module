@@ -13,35 +13,97 @@ function og_defaultgroup_form_alter(&$form, &$form_state, $form_id) {
     if (isset($form['uid']['#value'])){
       $uid = $form['uid']['#value'];
       $account = user_load($uid);
-    } 
+    }
     else {
       global $user;
       $account = $user;
     }
-    
-    $gids = array();
-    
+
     if (!isset($form[OG_AUDIENCE_FIELD]['und']['#default_value']['0'])) {
 
-      $gids = og_get_groups_by_user($account);
-      $defaultgroup = og_load_entity_from_group(end($gids));
-      $defaultgids = array(end($gids));
-      
-      foreach ($gids as $key => $val) {
-        $group = og_load_entity_from_group($val);
-        if (!is_object($group)) {
-          continue;
-        }
-        if ($defaultgroup->changed < $group->changed ) {
-          $defaultgroup = $group;
-          $defaultgids = array($val);
-          
-        }
-      }
-      $form[OG_AUDIENCE_FIELD]['und']['#default_value']= $defaultgids;
+      $defaultgids = _og_defaultgroup_load($account);
+      $form[OG_AUDIENCE_FIELD]['und']['#default_value'] = $defaultgids;
     }
-     
+
   }
 
   return;
+}
+
+
+/**
+ * Implements hook_node_validate().
+ *
+ * Check that the rating attribute is set in the form submission, since the
+ * field is required. If not, send error message.
+ */
+function og_defaultgroup_node_validate($node, $form) {
+  dpm($node);
+
+  if (isset($node->group_group)) {
+    // This node type is a Group.
+    $group = og_get_group('node', $node->nid);
+    dpm('Save Group');
+    dpm($group);
+    _og_defaultgroup_save($group->gid);
+  }
+
+  if (isset($node->OG_AUDIENCE_FIELD)) {
+    // This node type is group content.
+        dpm('Save Group');
+         _og_defaultgroup_save($node->OG_AUDIENCE_FIELD['und']['0']);
+    foreach ($node->OG_AUDIENCE_FIELD['und'] as $k => $v) {
+     dpm($k);
+     dpm($v);
+     _og_defaultgroup_save($v);
+    }
+    //form_set_error('nodeapi_example_rating', t('You must rate this content.'));
+  }
+}
+
+/**
+ * Private function to get the most recently used GID.
+ *
+ * @param array $account
+ *  Drupal account object
+ *
+ * @return array
+ *  Array of Group IDs.s
+ */
+function _og_defaultgroup_load($account) {
+  if (isset($_COOKIE['LastDrupalGroup'])) {
+    dpm('Cookie says ' . $_COOKIE['LastDrupalGroup']);
+    return array($_COOKIE['LastDrupalGroup']);
+  }
+  $gids = og_get_groups_by_user($account);
+  $defaultgroup = og_load_entity_from_group(end($gids));
+  $defaultgids = array(end($gids));
+  foreach ($gids as $key => $val) {
+    $group = og_load_entity_from_group($val);
+    if (!is_object($group)) {
+      continue;
+    }
+    dpm($group->title . " " . date('M-d-Y', $group->changed));
+
+    if ($defaultgroup->changed < $group->changed) {
+      $defaultgroup = $group;
+      $defaultgids = array($val);
+    }
+  }
+  return $defaultgids;
+
+}
+
+/**
+ * Private function to save GID to cookie.
+ *
+ * @param string $gid
+ *   Group ID number.
+ */
+function _og_defaultgroup_save($gid = NULL) {
+  if ($gid = NULL) {
+    return;
+  }
+  $month = 2592000 + time();
+  setcookie('LastDrupalGroup', $gid, $month);
 }
